@@ -1,17 +1,14 @@
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-# needs mlr, batchtools, RWeka
+getAlgoWrapper = function(lrn, outer.cv, measures) {
 
-library("mlr")
-library("batchtools")
-
-# mlr config
-configureMlr(on.learner.error = "warn")
-configureMlr(show.info = TRUE)
-
-predefined.learners = list("classif.JRip", "classif.BayesNet", "classif.J48")
+  function(job, data, instance, ...) {
+    ret = resample(learner = makeLearner(lrn), task = data, resampling = outer.cv, 
+      measures = measures, models = FALSE, show.info = TRUE)
+    return(ret)
+  }
+}
 
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
-

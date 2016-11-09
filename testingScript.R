@@ -2,44 +2,68 @@
 #--------------------------------------------------------------------------------------------------
 
   devtools::load_all()
+  unlink(x = "registry/", recursive = TRUE)
+  reg = makeExperimentRegistry(make.default = TRUE, packages = c("foreign", "mlr"))
 
-  data = iris
-  task =  makeClassifTask( data = data, target = "Species")
+  datasets = list.files(path = "data/training")
 
-  lrn = makeLearner("classif.BayesNet")
+  aux = lapply(datasets, function(datafile) {
+    data = RWeka::read.arff(paste0("data/training/", datafile))
+    id = gsub(x = datafile, pattern = ".arff", replacement = "")
+    colnames(data) = make.names(colnames(data), unique = TRUE)
+    task = makeClassifTask(id = id, data = data, target = "Class")
+    addProblem(name = id, data = task, reg = reg)
+  })
+
+  # add algos
   outer.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
-  measures = list(acc, ber)
-
-  # results = resample(learner = lrn, task = task, resampling = outer.cv, measures = measures, 
-    # models = TRUE, show.info = TRUE)
-
-  # mod = train(lrn, task)
-  # newdata.pred = predict(mod, newdata = iris.test)
-
-  # obj = results$pred$data
-  # truth = obj$truth
-  # response = obj$response
-
-  par.set = makeParamSet(
-    makeDiscreteParam(id = "Q", values = paste0("weka.classifiers.bayes.net.search.local.", 
-      c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN")))
-  )
-
-  # Tunning - OK
-
-  inner.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
-  BUDGET = 10 
-  ctrl = makeTuneControlRandom(maxit = BUDGET)
-
-  new.lrn = makeTuneWrapper(learner = lrn, resampling = inner.cv,
-    measure = ber, par.set = par.set, control = ctrl, show.info = TRUE)
+  measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
   
-  res = benchmark(learners = new.lrn, tasks = list(task), resamplings = outer.cv, 
-      measures = measures, show.info = TRUE, models = FALSE)
+  predefined.learners = list("classif.JRip") #, "classif.BayesNet", "classif.J48")
+  aux = lapply(predefined.learners, function(algo){
+    addAlgorithm(name = algo, reg = reg,
+      fun = getAlgoWrapper(lrn = algo, outer.cv = outer.cv, measures = measures)
+    )
+  })
 
+  # Define algo desings
+  algo.designs = NULL
+  # algo.designs = list(
+  #   classif.JRip = expand.grid(N = (1:2), O = 1:2),
+  #   classif.BayesNet = expand.grid( Q = paste0("weka.classifiers.bayes.net.search.local.", 
+  #   c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN"))),
+  #   classif.J48 = expand.grid(M = 10^c(-4,-3,-2,-1), C = c(0.1, 0.15, 0.2, 0.25, 0.3))
+  # )
   
-# weka.classifiers.bayes.net.search.local.
+  ids = addExperiments(prob.designs = NULL, algo.designs = algo.designs, repls = 1L, 
+    combine = "crossprod", reg = reg)
 
+  getJobTable(reg = reg)
+  # testJob(reg = reg, id = 1)
+ 
+  for(id in as.list(ids)$job.id) {
+    test = try(testJob(reg = reg, id = id), silent = TRUE)
+    if (inherits(test, "try-error")) {
+      print("error")
+      browser()
+    }
+  }
+
+  # Chunk jobs per algorithm and submit them:
+  # submitJobs(reg = reg, resources = list(walltime = 3600, memory = 1024 * 8))
+
+  # # Reduce results
+  # ids = findDone(reg = reg)
+  # params = getJobPars(ids, reg = reg)
+
+  # # results = reduceResultsDataTable(ids, fun = function(res) list(res = res$aggr), reg = reg)
+  # results = reduceResultsList(ids, fun = function(job, res) c(job$id, res$aggr), reg = reg)
+  # teste = do.call("rbind", results)
+  # colnames(teste)[1] = "job.id"
+
+  # tab = ljoin(teste, params, by = "job.id")
+  # write.csv(x = tab, file = "test.csv")
+ 
 
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
