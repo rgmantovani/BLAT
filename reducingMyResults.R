@@ -17,7 +17,10 @@ reducingMyResults = function() {
   colnames(teste)[1] = "job.id"
 
   tab = ljoin(teste, params, by = "job.id")
-  write.csv(x = tab, file = "test.csv")
+
+  if(!dir.exists(path="output/"))
+    dir.create(path = "output/", recursive = TRUE)
+  write.csv(x = tab, file = "output/test.csv")
 
 }
 

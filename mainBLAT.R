@@ -21,7 +21,7 @@ main = function() {
   outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = TRUE)
   measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
     
-  aux = lapply(predefined.learners, function(algo){
+  aux = lapply(predefined.learners[[1]], function(algo){
     addAlgorithm(name = algo, reg = reg,
       fun = getAlgoWrapper(lrn = algo, outer.cv = outer.cv, measures = measures)
     )
@@ -29,7 +29,7 @@ main = function() {
 
   # Define algo desings
   algo.designs = list(
-    classif.JRip = expand.grid(N = (1:2), O = 1:2),
+    classif.JRip = expand.grid(N = (1:5), O = 1:5),
     classif.BayesNet = expand.grid( Q = paste0("weka.classifiers.bayes.net.search.local.", 
     c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN"))),
     classif.J48 = expand.grid(M = 10^c(-4,-3,-2,-1), C = c(0.1, 0.15, 0.2, 0.25, 0.3))
