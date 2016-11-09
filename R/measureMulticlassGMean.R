@@ -1,16 +1,7 @@
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-# for each level "lv"
-#   - lv is the positive class (in both: truth and response)
-#   - make lv vs "other" (binarized problem) 
-  # - call gmean
-  # - average list
-
-#--------------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------
-
-#' @export multiclass.brier
+#' @export multiclass.gmean
 #' @rdname measures
 #' @format none
 multiclass.gmean = makeMeasure(id = "multiclass.gmean", minimize = FALSE, best = 1, worst = 0,
@@ -25,7 +16,7 @@ multiclass.gmean = makeMeasure(id = "multiclass.gmean", minimize = FALSE, best =
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
 
-#' @export measureMulticlassBrier
+#' @export measureMulticlassGMean
 #' @rdname measures
 #' @format none
 
