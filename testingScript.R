@@ -20,7 +20,7 @@
   measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
   
   predefined.learners = list("classif.JRip") #, "classif.BayesNet", "classif.J48")
-  aux = lapply(predefined.learners, function(algo){
+  aux = lapply(predefined.learners, function(algo) {
     addAlgorithm(name = algo, reg = reg,
       fun = getAlgoWrapper(lrn = algo, outer.cv = outer.cv, measures = measures)
     )

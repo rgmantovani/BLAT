@@ -21,7 +21,7 @@ main = function() {
   outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = TRUE)
   measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
     
-  aux = lapply(predefined.learners[[1]], function(algo){
+  aux = lapply(predefined.learners, function(algo) {
     addAlgorithm(name = algo, reg = reg,
       fun = getAlgoWrapper(lrn = algo, outer.cv = outer.cv, measures = measures)
     )
