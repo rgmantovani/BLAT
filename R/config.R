@@ -3,7 +3,7 @@
 
 # needs mlr, batchtools, RWeka (used indirectly)
 library("mlr")
-library("batchtools")
+library("BatchExperiments")
 
 # mlr config
 configureMlr(on.learner.error = "warn")

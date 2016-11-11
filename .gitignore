@@ -5,3 +5,5 @@
 registry/
 
 *.csv
+
+*-files/

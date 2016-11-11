@@ -2,68 +2,118 @@
 #--------------------------------------------------------------------------------------------------
 
   devtools::load_all()
-  unlink(x = "registry/", recursive = TRUE)
-  reg = makeExperimentRegistry(make.default = TRUE, packages = c("foreign", "mlr"))
+  unlink("test-files/", recursive = TRUE)
+  
+  # 1. Add an experiment registry
+  reg = makeExperimentRegistry(
+    id = "test", 
+    packages = c("mlr"), 
+    src.dirs = "R/"
+  )
 
-  datasets = list.files(path = "data/training")
+  # 2. List all datasets
+  datasets = list.files(path = "data/training")#[1:10]
 
-  aux = lapply(datasets, function(datafile) {
+  # 3. Add problems 
+  aux.data = lapply(datasets, function(datafile) {
     data = RWeka::read.arff(paste0("data/training/", datafile))
-    id = gsub(x = datafile, pattern = ".arff", replacement = "")
+    id = paste0("t_", gsub(x = datafile, pattern = ".arff", replacement = ""))
     colnames(data) = make.names(colnames(data), unique = TRUE)
+  
     task = makeClassifTask(id = id, data = data, target = "Class")
-    addProblem(name = id, data = task, reg = reg)
+    BatchExperiments::addProblem(reg = reg, id = id, static = task, overwrite = FALSE)
+    return(makeDesign(id = id, design = data.frame()))
   })
 
-  # add algos
-  outer.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
-  measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
   
-  predefined.learners = list("classif.JRip") #, "classif.BayesNet", "classif.J48")
-  aux = lapply(predefined.learners, function(algo) {
-    addAlgorithm(name = algo, reg = reg,
-      fun = getAlgoWrapper(lrn = algo, outer.cv = outer.cv, measures = measures)
-    )
-  })
+  # 4. Add all algorithms
 
-  # Define algo desings
-  algo.designs = NULL
-  # algo.designs = list(
-  #   classif.JRip = expand.grid(N = (1:2), O = 1:2),
-  #   classif.BayesNet = expand.grid( Q = paste0("weka.classifiers.bayes.net.search.local.", 
-  #   c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN"))),
-  #   classif.J48 = expand.grid(M = 10^c(-4,-3,-2,-1), C = c(0.1, 0.15, 0.2, 0.25, 0.3))
-  # )
-  
-  ids = addExperiments(prob.designs = NULL, algo.designs = algo.designs, repls = 1L, 
-    combine = "crossprod", reg = reg)
-
-  getJobTable(reg = reg)
-  # testJob(reg = reg, id = 1)
- 
-  for(id in as.list(ids)$job.id) {
-    test = try(testJob(reg = reg, id = id), silent = TRUE)
-    if (inherits(test, "try-error")) {
-      print("error")
-      browser()
-    }
+  # a) JRip
+  jrip.wrapper = function(static, dynamic, ...) {
+    lrn = makeLearner("classif.JRip")
+    outer.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
+    measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
+    
+    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
+    
+    ret = resample(learner = lrn, task = static, resampling = outer.cv, 
+      measures = measures, models = FALSE, show.info = TRUE)
+    return(ret)
   }
+  addAlgorithm(reg = reg, id = "classif.JRip", fun = jrip.wrapper) 
 
-  # Chunk jobs per algorithm and submit them:
-  # submitJobs(reg = reg, resources = list(walltime = 3600, memory = 1024 * 8))
 
-  # # Reduce results
-  # ids = findDone(reg = reg)
-  # params = getJobPars(ids, reg = reg)
+  # b) BayesNet
+  bayesNet.wrapper = function(static, dynamic, ...) {
+    lrn = makeLearner("classif.BayesNet")
+    outer.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
+    measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
 
-  # # results = reduceResultsDataTable(ids, fun = function(res) list(res = res$aggr), reg = reg)
-  # results = reduceResultsList(ids, fun = function(job, res) c(job$id, res$aggr), reg = reg)
-  # teste = do.call("rbind", results)
-  # colnames(teste)[1] = "job.id"
+    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
 
-  # tab = ljoin(teste, params, by = "job.id")
-  # write.csv(x = tab, file = "test.csv")
- 
+     ret = resample(learner = lrn, task = static, resampling = outer.cv, 
+      measures = measures, models = FALSE, show.info = TRUE)
+    return(ret)
+  }
+  addAlgorithm(reg = reg, id = "classif.bayesNet", fun = bayesNet.wrapper) 
 
+
+  # c) J48
+  j48.wrapper = function(static, dynamic, ...) {
+    lrn = makeLearner("classif.J48")
+    outer.cv = makeResampleDesc(method = "CV", iters = 3, stratify = TRUE)
+    measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
+
+    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
+    ret = resample(learner = lrn, task = static, resampling = outer.cv, 
+      measures = measures, models = FALSE, show.info = TRUE)
+    return(ret)
+  }
+  addAlgorithm(reg = reg, id = "classif.J48", fun = j48.wrapper)
+
+  # 5. Add algorithms designs
+  jrip.pars = list(N = 1:5, O = 1:5)
+  jrip.design = makeDesign("classif.JRip", exhaustive = jrip.pars)
+
+  bayesNet.params = list(Q = paste0("weka.classifiers.bayes.net.search.local.", 
+    c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN")))
+  bayesNet.design = makeDesign("classif.bayesNet", exhaustive = bayesNet.params)
+
+  j48.pars = list(M = 2^(0:6), C = c(0.1, 0.15, 0.2, 0.25, 0.3))
+  j48.design = makeDesign("classif.J48", exhaustive = j48.pars)
+
+  aux.algo = list(jrip.design, bayesNet.design, j48.design)
+  
+  # 6. Adding Experiments 
+  job.ids = addExperiments(reg = reg, prob.designs = aux.data, algo.designs = aux.algo, 
+    skip.defined = TRUE)
+
+  # summarizeExperiments(reg)
+  # browser()
+
+  ###########################
+  # Just for testing Jobs
+  ###########################
+  
+  # testJob(reg = reg, id = 1)
+  # for(job in job.ids) {
+  #   testJob(reg = reg, id = job)
+  # }
+  
+  #   makeDesign(id = "classif.BayesNet", 
+  #     design = expand.grid(Q = paste0("weka.classifiers.bayes.net.search.local.", 
+  #   c("K2", "HillClimber", "LAGDHillClimber", "SimulatedAnnealing", "TabuSearch", "TAN")))),
+  #   makeDesign(id = "classif.J48", design = expand.grid(M = 10^c(-4,-3,-2,-1), 
+  #     C = c(0.1, 0.15, 0.2, 0.25, 0.3))) 
+  # )
+  # ad1 = makeDesign("oi", exhaustive = list(x = 1:2, y = 5:6))
+
+  ###########################
+  # submitJobs(reg = reg, ids = job.ids)  
+  # status = waitForJobs(reg = reg, ids = job.ids)
+  # catf(" * Done.")
+
+
+  
 #--------------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------
