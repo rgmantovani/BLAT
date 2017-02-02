@@ -5,5 +5,8 @@
 registry/
 
 *.csv
-
+*.zip
 *-files/
+
+data/
+samples/

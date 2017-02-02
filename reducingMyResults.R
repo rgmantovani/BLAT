@@ -15,8 +15,7 @@ reducingMyResults = function() {
   if(!dir.exists(path="output/")) { 
     dir.create(path = "output/", recursive = TRUE)
   } 
-  write.csv(x = res, file = "output/test.csv")
-
+  write.csv(x = res, file = "output/base_level_results.csv")
 }
 
 #--------------------------------------------------------------------------------------------------

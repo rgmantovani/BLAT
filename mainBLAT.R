@@ -6,75 +6,59 @@ main = function() {
   devtools::load_all()
   unlink("test-files/", recursive = TRUE)
   
-  # 1. Add an experiment registry
   reg = makeExperimentRegistry(
     id = "test", 
     packages = c("mlr"), 
     src.dirs = "R/"
   )
 
-  # 2. List all datasets
-  datasets = list.files(path = "data/training")
+  datasets = list.files(path = "samples/")
 
-  # 3. Add problems 
   aux.data = lapply(datasets, function(datafile) {
-    data = RWeka::read.arff(paste0("data/training/", datafile))
+
+    data = RWeka::read.arff(paste0("samples/", datafile))
     id = paste0("t_", gsub(x = datafile, pattern = ".arff", replacement = ""))
     colnames(data) = make.names(colnames(data), unique = TRUE)
-  
+
     task = makeClassifTask(id = id, data = data, target = "Class")
     BatchExperiments::addProblem(reg = reg, id = id, static = task, overwrite = FALSE)
     return(makeDesign(id = id, design = data.frame()))
   })
 
   
-  # 4. Add all algorithms
-
   # a) JRip
   jrip.wrapper = function(static, dynamic, ...) {
-    lrn = makeLearner("classif.JRip")
-    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = TRUE)
+    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = FALSE)
     measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
-    
-    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
-    
+    lrn = setHyperPars(learner = makeLearner("classif.JRip"), par.vals = list(...))
     ret = resample(learner = lrn, task = static, resampling = outer.cv, 
       measures = measures, models = FALSE, show.info = TRUE)
     return(ret)
   }
   addAlgorithm(reg = reg, id = "classif.JRip", fun = jrip.wrapper) 
 
-
   # b) BayesNet
   bayesNet.wrapper = function(static, dynamic, ...) {
-    lrn = makeLearner("classif.BayesNet")
-    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = TRUE)
+    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = FALSE)
     measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
-
-    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
-
-     ret = resample(learner = lrn, task = static, resampling = outer.cv, 
+    lrn = setHyperPars(learner = makeLearner("classif.BayesNet"), par.vals = list(...))
+    ret = resample(learner = lrn, task = static, resampling = outer.cv, 
       measures = measures, models = FALSE, show.info = TRUE)
     return(ret)
   }
   addAlgorithm(reg = reg, id = "classif.bayesNet", fun = bayesNet.wrapper) 
 
-
   # c) J48
   j48.wrapper = function(static, dynamic, ...) {
-    lrn = makeLearner("classif.J48")
-    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = TRUE)
+    outer.cv = makeResampleDesc(method = "CV", iters = 10, stratify = FALSE)
     measures = list(acc, ber, multiclass.gmean, timetrain, timepredict, timeboth)
-
-    new.lrn = setHyperPars(learner = lrn, par.vals = list(...))
+    lrn = setHyperPars(learner = makeLearner("classif.J48"), par.vals = list(...))
     ret = resample(learner = lrn, task = static, resampling = outer.cv, 
       measures = measures, models = FALSE, show.info = TRUE)
     return(ret)
   }
   addAlgorithm(reg = reg, id = "classif.J48", fun = j48.wrapper)
 
-
-  # 5. Add algorithms designs
   jrip.pars = list(N = 1:5, O = 1:5)
   jrip.design = makeDesign("classif.JRip", exhaustive = jrip.pars)
 
@@ -87,7 +71,6 @@ main = function() {
 
   aux.algo = list(jrip.design, bayesNet.design, j48.design)
   
-  # 6. Adding Experiments 
   job.ids = addExperiments(reg = reg, prob.designs = aux.data, algo.designs = aux.algo, 
     skip.defined = TRUE)
 
